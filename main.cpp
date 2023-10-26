@@ -17,10 +17,7 @@ void add (FArrayBox const& fab_a, FArrayBox const& fab_b, MultiFab& mfc)
     for (MFIter mfi(mfc); mfi.isValid(); ++mfi) {
         const Box &bx = mfi.validbox();
         Print() << "*** the iter box is: " << bx << "\n";
-        //Array4<Real const> const &a = mfa.const_array();
-        //Array4<Real const> const &b = mfb.const_array();
         Array4<Real> const& c = mfc.array(mfi);
-        BL_PROFILE("matmul"); // for NVIDIA Nsight Compute
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int ) noexcept
         {
             c(i, j, 0) = a(i, j, 0) + b(i, j, 0);
@@ -37,9 +34,6 @@ void matmul (FArrayBox const& fab_a, FArrayBox const& fab_b, MultiFab& mfc,
 
     for (MFIter mfi(mfc); mfi.isValid(); ++mfi) {
         const Box &bx = mfi.validbox();
-        //Print() << "*** the iter box is: " << bx << "\n";
-        //Array4<Real const> const &a = mfa.const_array();
-        //Array4<Real const> const &b = mfb.const_array();
         Array4<Real> const& c = mfc.array(mfi);
         BL_PROFILE("matmul"); // for NVIDIA Nsight Compute
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int ) noexcept
@@ -66,27 +60,23 @@ int main(int argc, char* argv[])
         BL_PROFILE("main()");
         Print() << "Matrix multiplication benchmark" << "\n";
 
-        //int max_grid_size = 256;
         Vector<int> grid_size(AMREX_SPACEDIM);
         Vector<int> matrixA_ndim(AMREX_SPACEDIM);
         Vector<int> matrixB_ndim(AMREX_SPACEDIM);
-        //IntVect grid_size{256,128};
-        //IntVect matrixA_ndim{256,256};
-        //IntVect matrixB_ndim{256,256};
+
         {
             ParmParse pp;
-            //pp.query("max_grid_size", max_grid_size);
             pp.queryarr("grid_size", grid_size, 0, AMREX_SPACEDIM);
 
             pp.queryarr("matrixA_ndim", matrixA_ndim, 0, AMREX_SPACEDIM);
             pp.queryarr("matrixB_ndim", matrixB_ndim, 0, AMREX_SPACEDIM);
-
         }
+
         if (matrixA_ndim[1] != matrixB_ndim[0]) {
             amrex::Abort("Inner dimension of the matrices must match.");
         }
-        int inner_dim = matrixA_ndim[1]-1;
 
+        int inner_dim = matrixA_ndim[1]-1;
         IntVect matrixC_ndim{matrixA_ndim[0], matrixB_ndim[1]};
 
         Box domainA(IntVect(0), IntVect(matrixA_ndim)-1);
@@ -112,7 +102,7 @@ int main(int argc, char* argv[])
         initMatrix(fab_B);
 
         {
-            BL_PROFILE("matmul");
+            BL_PROFILE("matmul-main");
             amrex::Real t0 = amrex::second();
             matmul(fab_A, fab_B, mf_C, inner_dim);
             t = amrex::second()-t0;
