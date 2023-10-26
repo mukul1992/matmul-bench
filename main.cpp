@@ -9,23 +9,6 @@
 
 using namespace amrex;
 
-void add (FArrayBox const& fab_a, FArrayBox const& fab_b, MultiFab& mfc)
-{
-    Array4<Real const> const &a = fab_a.const_array();
-    Array4<Real const> const &b = fab_b.const_array();
-
-    for (MFIter mfi(mfc); mfi.isValid(); ++mfi) {
-        const Box &bx = mfi.validbox();
-        Print() << "*** the iter box is: " << bx << "\n";
-        Array4<Real> const& c = mfc.array(mfi);
-        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int ) noexcept
-        {
-            c(i, j, 0) = a(i, j, 0) + b(i, j, 0);
-
-        });
-    }
-}
-
 void matmul (FArrayBox const& fab_a, FArrayBox const& fab_b, MultiFab& mfc,
                     int inner_dim)
 {
@@ -58,18 +41,18 @@ int main(int argc, char* argv[])
 
     {
         BL_PROFILE("main()");
-        Print() << "Matrix multiplication benchmark" << "\n";
+        Print() << "Matrix multiplication with AMReX" << "\n"
+            << "C = A * B" << "\n";
 
-        Vector<int> grid_size(AMREX_SPACEDIM);
         Vector<int> matrixA_ndim(AMREX_SPACEDIM);
         Vector<int> matrixB_ndim(AMREX_SPACEDIM);
-
+        Vector<int> grid_size(AMREX_SPACEDIM);
+        // parse grid size and matrix dimensions from input
         {
             ParmParse pp;
-            pp.queryarr("grid_size", grid_size, 0, AMREX_SPACEDIM);
-
             pp.queryarr("matrixA_ndim", matrixA_ndim, 0, AMREX_SPACEDIM);
             pp.queryarr("matrixB_ndim", matrixB_ndim, 0, AMREX_SPACEDIM);
+            pp.queryarr("grid_size", grid_size, 0, AMREX_SPACEDIM);
         }
 
         if (matrixA_ndim[1] != matrixB_ndim[0]) {
@@ -83,43 +66,50 @@ int main(int argc, char* argv[])
         Box domainB(IntVect(0), IntVect(matrixB_ndim)-1);
         Box domainC(IntVect(0), matrixC_ndim-1);
 
-        Print() << "matrix A dimensions: " << domainA << "\n";
-        Print() << "matrix B dimensions: " << domainB << "\n";
-        Print() << "matrix C dimensions: " << domainC << "\n";
+        if (amrex::Verbose() > 1) {
+            Print() << "matrix A dimensions: " << domainA << "\n";
+            Print() << "matrix B dimensions: " << domainB << "\n";
+            Print() << "matrix C dimensions: " << domainC << "\n";
+        }
 
+        // matrices A and B are kept as single FABs
         FArrayBox fab_A(domainA, 1);
         FArrayBox fab_B(domainB, 1);
-        //FArrayBox fab_C(domainC, 1);
 
+        // GPU kernels will be launched over several "grids" of the output matrix
         BoxArray ba_C(domainC);
-        //ba_C.maxSize(max_grid_size);
         ba_C.maxSize(IntVect(grid_size));
         DistributionMapping dm_C{ba_C};
         MultiFab mf_C(ba_C,dm_C,1,0);
-        Print() << "matrix C grids: \n" << ba_C << "\n\n";
+        if (amrex::Verbose() > 1) {
+            Print() << "matrix C grids: \n" << ba_C << "\n\n";
+        }
 
+        // initialize the matrices A and B with uniform RNG between 0 and 1
         initMatrix(fab_A);
         initMatrix(fab_B);
 
         {
+            if (amrex::Verbose() > 1) Print() << "starting matrix multiplication. \n";
             BL_PROFILE("matmul-main");
             amrex::Real t0 = amrex::second();
             matmul(fab_A, fab_B, mf_C, inner_dim);
             t = amrex::second()-t0;
+            if (amrex::Verbose() > 1) Print() << "completed matrix multiplication. \n";
         }
 
-
+        /*
+        // *** For debugging and validation during development phase ***
         Print() << "matrix A \n";
-        //printMatrix(fab_A);
+        printMatrix(fab_A);
         Print() << "matrix B \n";
-        //printMatrix(fab_B);
+        printMatrix(fab_B);
         Print() << "matrix C \n";
         RealBox real_box({-1.0,-1.0},{1.0,1.0});
         Geometry geom(domainC, real_box, 0, {0,0});
         WriteSingleLevelPlotfile ("plt_matC", mf_C, {"val"}, geom, 0.0, 0);
-
+        */
     }
-
     amrex::Finalize();
     std::cout << "Kernel run time is " << std::scientific << t << ".\n";
 }

@@ -1,7 +1,7 @@
 #include "matmul_init.H"
 
 using namespace amrex;
-
+/*
 void initMatrix(MultiFab& mf)
 {
     for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
@@ -14,7 +14,7 @@ void initMatrix(MultiFab& mf)
         });
     }
 }
-
+*/
 void initMatrix(FArrayBox &fab)
 {
     Array4<Real> const &mat = fab.array();

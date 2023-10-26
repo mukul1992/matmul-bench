@@ -4,7 +4,7 @@
 #include <AMReX_Random.H>
 #include <AMReX_MultiFab.H>
 
-void initMatrix(amrex::MultiFab& mf);
+// void initMatrix(amrex::MultiFab& mf);
 
 void initMatrix(amrex::FArrayBox &fab);
 
