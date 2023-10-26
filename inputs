@@ -1,4 +1,4 @@
-matrixA_ndim	= 8 2
-matrixB_ndim 	= 2 8
+matrixA_ndim	= 6912 4096
+matrixB_ndim 	= 4096 2048
 grid_size	= 4096 4096
 #grid_size	= 4096 4096

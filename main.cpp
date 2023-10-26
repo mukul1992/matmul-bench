@@ -110,9 +110,9 @@ int main(int argc, char* argv[])
 
 
         Print() << "matrix A \n";
-        printMatrix(fab_A);
+        //printMatrix(fab_A);
         Print() << "matrix B \n";
-        printMatrix(fab_B);
+        //printMatrix(fab_B);
         Print() << "matrix C \n";
         RealBox real_box({-1.0,-1.0},{1.0,1.0});
         Geometry geom(domainC, real_box, 0, {0,0});
