@@ -1,0 +1,4 @@
+matrixA_ndim	= 8 2
+matrixB_ndim 	= 2 8
+grid_size	= 4096 4096
+#grid_size	= 4096 4096

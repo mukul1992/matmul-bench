@@ -57,7 +57,11 @@ int main(int argc, char* argv[])
 {
     Real t;
     amrex::Initialize(argc,argv);
-    // need to abort if number of processes > 1
+    int nprocs = ParallelDescriptor::NProcs();
+    if (nprocs != 1) {
+        amrex::Abort("This is a single process program.");
+    }
+
     {
         BL_PROFILE("main()");
         Print() << "Matrix multiplication benchmark" << "\n";
@@ -78,7 +82,10 @@ int main(int argc, char* argv[])
             pp.queryarr("matrixB_ndim", matrixB_ndim, 0, AMREX_SPACEDIM);
 
         }
-        // need to abort if dimensions are not compliant
+        if (matrixA_ndim[1] != matrixB_ndim[0]) {
+            amrex::Abort("Inner dimension of the matrices must match.");
+        }
+        int inner_dim = matrixA_ndim[1]-1;
 
         IntVect matrixC_ndim{matrixA_ndim[0], matrixB_ndim[1]};
 
@@ -104,7 +111,13 @@ int main(int argc, char* argv[])
         initMatrix(fab_A);
         initMatrix(fab_B);
 
-        matmul(fab_A, fab_B, mf_C, matrixA_ndim[1]-1);
+        {
+            BL_PROFILE("matmul");
+            amrex::Real t0 = amrex::second();
+            matmul(fab_A, fab_B, mf_C, inner_dim);
+            t = amrex::second()-t0;
+        }
+
 
         Print() << "matrix A \n";
         printMatrix(fab_A);
@@ -118,4 +131,5 @@ int main(int argc, char* argv[])
     }
 
     amrex::Finalize();
+    std::cout << "Kernel run time is " << std::scientific << t << ".\n";
 }
