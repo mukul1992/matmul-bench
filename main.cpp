@@ -2,70 +2,14 @@
 #include <AMReX_Print.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_MultiFab.H>
-#include <AMReX_Random.H>
 #include <AMReX_PlotFileUtil.H>
 
+#include "matmul_init.H"
+#include "matmul_print.H"
 
 using namespace amrex;
 
-static void initMatrix(MultiFab& mf)
-{
-    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
-        const Box& bx = mfi.validbox();
-        Array4<Real> const& mat = mf.array(mfi);
-        amrex::ParallelForRNG(bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int , RandomEngine const& engine)
-        {
-            mat(i,j,0) = amrex::Random(engine);
-        });
-    }
-}
-
-static void initMatrix(FArrayBox &fab)
-{
-    Array4<Real> const &mat = fab.array();
-    const Box &bx = fab.box();
-    amrex::ParallelForRNG(bx,
-    [=] AMREX_GPU_DEVICE(int i, int j, int, RandomEngine const &engine)
-    {
-        mat(i, j, 0) = amrex::Random(engine);
-    });
-}
-
-static void printMatrix(MultiFab& mf, IntVect mat_ndim)
-{
-    MFIter mfi(mf); ++mfi;
-    Array4<Real> const& mat = mf.array(mfi);
-
-    int imax = mat_ndim[0]-1;
-    int jmax = mat_ndim[1]-1;
-    for(int i=0; i<=imax; i++) {
-        for(int j=0; j<=jmax; j++) {
-            Print() << mat(i,j,0) << " ";
-        }
-        Print() << "\n";
-    }
-    Print() << "\n";
-}
-
-
-static void printMatrix(FArrayBox &fab)
-{
-    Array4<Real> const &mat = fab.array();
-    const Box &bx = fab.box();
-    int imax = bx.bigEnd(0);
-    int jmax = bx.bigEnd(1);
-    Print() << "Matrix dimensions: " << imax+1 << " x " << jmax+1 << "\n";
-    for(int i=0; i<=imax; i++) {
-        for(int j=0; j<=jmax; j++) {
-            Print() << mat(i,j,0) << " ";
-        }
-        Print() << "\n";
-    }
-    Print() << "\n";
-}
-
-static void matmul (FArrayBox const& fab_a, FArrayBox const& fab_b, MultiFab& mfc)
+void add (FArrayBox const& fab_a, FArrayBox const& fab_b, MultiFab& mfc)
 {
     Array4<Real const> const &a = fab_a.const_array();
     Array4<Real const> const &b = fab_b.const_array();
@@ -79,9 +23,32 @@ static void matmul (FArrayBox const& fab_a, FArrayBox const& fab_b, MultiFab& mf
         BL_PROFILE("matmul"); // for NVIDIA Nsight Compute
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int ) noexcept
         {
-
             c(i, j, 0) = a(i, j, 0) + b(i, j, 0);
 
+        });
+    }
+}
+
+void matmul (FArrayBox const& fab_a, FArrayBox const& fab_b, MultiFab& mfc,
+                    int inner_dim)
+{
+    Array4<Real const> const &a = fab_a.const_array();
+    Array4<Real const> const &b = fab_b.const_array();
+
+    for (MFIter mfi(mfc); mfi.isValid(); ++mfi) {
+        const Box &bx = mfi.validbox();
+        //Print() << "*** the iter box is: " << bx << "\n";
+        //Array4<Real const> const &a = mfa.const_array();
+        //Array4<Real const> const &b = mfb.const_array();
+        Array4<Real> const& c = mfc.array(mfi);
+        BL_PROFILE("matmul"); // for NVIDIA Nsight Compute
+        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int ) noexcept
+        {
+            Real sum{0.0};
+            for (int inner=0; inner<=inner_dim; inner++) {
+                sum += a(i, inner, 0) * b(inner, j, 0);
+            }
+            c(i, j, 0) = sum;
         });
     }
 }
@@ -137,7 +104,7 @@ int main(int argc, char* argv[])
         initMatrix(fab_A);
         initMatrix(fab_B);
 
-        matmul(fab_A, fab_B, mf_C);
+        matmul(fab_A, fab_B, mf_C, matrixA_ndim[1]-1);
 
         Print() << "matrix A \n";
         printMatrix(fab_A);
