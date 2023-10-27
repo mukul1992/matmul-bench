@@ -1,4 +1,4 @@
 matrixA_ndim	= 8192 4096
 matrixB_ndim 	= 4096 2048
-grid_size	= 128  128
+grid_size	= 128  128  # optimal grid size for the above matrix dimensions on Perlmutter A100
 #amrex.v		= 2
